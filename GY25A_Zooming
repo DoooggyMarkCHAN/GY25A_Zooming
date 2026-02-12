@@ -1,0 +1,129 @@
+#include <BleKeyboard.h>
+BleKeyboard bleKeyboard;
+
+int x_pin = D0;
+int y_pin = D1;
+int calibrate_pin = D10;
+
+int x_value;
+int y_value;
+
+int x_value_corr;
+int y_value_corr;
+
+int x_value_cal = 1300;
+
+float k_esp32c3_analog = 0.88865;
+
+bool is_Q_key_pressed = false;
+bool is_E_key_pressed = false;
+bool is_zoom_in_pressed = false;
+bool is_zoom_out_pressed = false;
+
+void setup() {
+  pinMode(x_pin, INPUT);
+  pinMode(y_pin, INPUT);
+  pinMode(calibrate_pin, INPUT_PULLUP);
+  Serial.begin(9600);
+  Serial.println("Starting BLE work!");
+  bleKeyboard.begin();
+}
+
+void loop() {
+  x_value = analogRead(x_pin);
+  y_value = analogRead(y_pin);
+
+  x_value_corr = int(float(x_value) * k_esp32c3_analog);
+  y_value_corr = int(float(y_value) * k_esp32c3_analog);
+
+  if (!digitalRead(calibrate_pin)) {
+    x_value_cal = x_value_corr;
+  }
+
+  if (bleKeyboard.isConnected()) {
+    Serial.print("Min:");
+    Serial.print(0);
+    Serial.print(",");
+    Serial.print("Max:");
+    Serial.print(4095);
+    Serial.print(",");
+    Serial.print("x_value_corr:");
+    Serial.print(x_value_corr);
+    Serial.print(",");
+    Serial.print("y_value_corr:");
+    Serial.println(y_value_corr);
+    // if (y_value_corr < 1548) {
+    //   if (!is_Q_key_pressed) {
+    //     bleKeyboard.press('q');
+    //     is_Q_key_pressed = !is_Q_key_pressed;
+    //   }
+    // } else if (y_value_corr > 1748 && y_value_corr < 2348) {
+    //   if (is_Q_key_pressed) {
+    //     bleKeyboard.release('q');
+    //     is_Q_key_pressed = !is_Q_key_pressed;
+    //   }
+    //   if (is_E_key_pressed) {
+    //     bleKeyboard.release('e');
+    //     is_E_key_pressed = !is_E_key_pressed;
+    //   }
+    // } else if (y_value_corr > 2548) {
+    //   if (!is_E_key_pressed) {
+    //     bleKeyboard.press('e');
+    //     is_E_key_pressed = !is_E_key_pressed;
+    //   }
+    // }
+    if (x_value_corr < x_value_cal-200) {
+      if (!is_zoom_in_pressed) {
+        bleKeyboard.press(KEY_LEFT_CTRL);
+        bleKeyboard.press(KEY_LEFT_SHIFT);
+        bleKeyboard.press(KEY_LEFT_ALT);
+        bleKeyboard.press(KEY_UP_ARROW);
+        is_zoom_in_pressed = true;
+        is_zoom_out_pressed = false;
+        delay_millisecond_non_block(10);
+        bleKeyboard.release(KEY_LEFT_CTRL);
+        bleKeyboard.release(KEY_LEFT_SHIFT);
+        bleKeyboard.release(KEY_LEFT_ALT);
+        bleKeyboard.release(KEY_UP_ARROW);
+        delay_millisecond_non_block(10);
+      }
+    } else if (x_value_corr < x_value_cal-150 && x_value_corr > x_value_cal-50) {
+      is_zoom_in_pressed = false;
+      is_zoom_out_pressed = false;
+    } else if (x_value_corr > x_value_cal) {
+      // Serial.println("Zoom out");
+      if (!is_zoom_out_pressed) {
+        bleKeyboard.press(KEY_LEFT_CTRL);
+        bleKeyboard.press(KEY_LEFT_SHIFT);
+        bleKeyboard.press(KEY_LEFT_ALT);
+        bleKeyboard.press(KEY_DOWN_ARROW);
+        is_zoom_out_pressed = true;
+        is_zoom_in_pressed = false;
+        delay_millisecond_non_block(10);
+        bleKeyboard.release(KEY_LEFT_CTRL);
+        bleKeyboard.release(KEY_LEFT_SHIFT);
+        bleKeyboard.release(KEY_LEFT_ALT);
+        bleKeyboard.release(KEY_DOWN_ARROW);
+        delay_millisecond_non_block(10);
+      }
+    }
+  }
+
+  else {
+    delay(1);
+    Serial.println(bleKeyboard.isConnected());
+    Serial.println("Waiting for Connection...");
+  }
+}
+
+void delay_microsecond_non_block(int t_delay) {
+  unsigned long t_start = micros();
+  while (micros() - t_start < t_delay) {
+  }
+}
+
+void delay_millisecond_non_block(int t_delay) {
+  unsigned long t_start = millis();
+  while (millis() - t_start < t_delay) {
+  }
+}
